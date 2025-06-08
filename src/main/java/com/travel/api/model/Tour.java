@@ -1,0 +1,17 @@
+package com.travel.api.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Data
+@Entity
+@Table(name = "tours")
+public class Tour {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    // ... existing code ...
+} 
