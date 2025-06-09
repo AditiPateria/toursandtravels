@@ -11,18 +11,26 @@ import com.travel.api.model.User;
 import com.travel.api.repository.UserRepository;
 import com.travel.api.security.UserPrincipal;
 
+import java.util.Optional;
+
 @Service
-@Primary  // Add this annotation to make this the primary UserDetailsService
+@Primary
 public class UserDetailsServiceImpl implements UserDetailsService {
 
+    private final UserRepository userRepository;
+
     @Autowired
-    private UserRepository userRepository;
+    public UserDetailsServiceImpl(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        System.out.println("🔍 Loading user: " + username);
         User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
         
+        System.out.println("✅ Found user: " + user.getUsername() + " with roles: " + user.getRoles());
         return UserPrincipal.build(user);
     }
 }

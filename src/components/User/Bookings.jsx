@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getBookings, createBooking, cancelBooking } from '../../services/bookingService';
 import { Table, Button, Container, Spinner, Alert, Modal, Form } from 'react-bootstrap';
@@ -6,11 +7,13 @@ import { format } from 'date-fns';
 
 const Bookings = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'online', 'offline'
+  const [serverStatus, setServerStatus] = useState('checking');
+
   const [newBooking, setNewBooking] = useState({
     tourId: '',
     travelersCount: 1,
@@ -22,33 +25,52 @@ const Bookings = () => {
     checkServerAndFetchBookings();
   }, []);
 
+  useEffect(() => {
+    if (serverStatus === 'unauthorized') {
+      const timer = setTimeout(() => navigate('/login'), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [serverStatus, navigate]);
+
   const checkServerAndFetchBookings = async () => {
     try {
       setLoading(true);
       setError('');
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setServerStatus('unauthorized');
+        setError('Please login to view bookings');
+        return;
+      }
+
       const data = await getBookings();
-      setBookings(data || []); // Ensure we always have an array
+      setBookings(data || []);
       setServerStatus('online');
     } catch (err) {
       console.error('Booking fetch error:', err);
-      if (err.message.includes('No response from server') || err.message.includes('Failed to fetch')) {
+      if (err.message.includes('Unauthorized') || err.response?.status === 403) {
+        setServerStatus('unauthorized');
+        setError(err.message || 'Session expired. Please login again.');
+        localStorage.removeItem('token');
+      } else if (err.message.includes('Failed to fetch') || !err.response) {
         setServerStatus('offline');
-        setError('Unable to connect to the server. Please make sure the backend server is running.');
+        setError('Unable to connect to server. Please try later.');
       } else {
         setServerStatus('online');
-        // If it's not a connection error, we're connected but got a different error
-        setError(err.message || 'Failed to fetch bookings. Please try again later.');
+        setError(err.message || 'Failed to fetch bookings');
       }
     } finally {
       setLoading(false);
     }
   };
 
+
   const handleCancel = async (bookingId) => {
     try {
       setError('');
       await cancelBooking(bookingId);
-      await checkServerAndFetchBookings(); // Refresh the list after cancellation
+      await checkServerAndFetchBookings();
     } catch (err) {
       setError(err.message || 'Failed to cancel booking. Please try again.');
     }
@@ -60,35 +82,59 @@ const Bookings = () => {
       setError('');
       await createBooking(newBooking);
       setShowModal(false);
-      await checkServerAndFetchBookings(); // Refresh the list after creation
+      resetBookingForm();
+      await checkServerAndFetchBookings();
     } catch (err) {
       setError(err.message || 'Failed to create booking. Please try again.');
     }
   };
 
-  if (loading) {
+  const resetBookingForm = () => {
+    setNewBooking({
+      tourId: '',
+      travelersCount: 1,
+      bookingDate: new Date().toISOString().split('T')[0],
+      specialRequirements: ''
+    });
+  };
+
+   if (loading) {
     return (
       <Container className="text-center mt-5">
         <Spinner animation="border" role="status">
           <span className="visually-hidden">Loading...</span>
         </Spinner>
+        <p className="mt-2">
+          {serverStatus === 'checking' && 'Checking server status...'}
+          {serverStatus === 'unauthorized' && 'Redirecting to login...'}
+        </p>
       </Container>
     );
   }
-
   return (
-    <Container className="my-5">
+  <Container className="my-5">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>My Bookings</h2>
-        <Button 
-          variant="primary" 
-          onClick={() => setShowModal(true)}
-          disabled={serverStatus === 'offline'}
-        >
+        <Button variant="primary" onClick={() => setShowModal(true)} disabled={serverStatus === 'offline'}>
           New Booking
         </Button>
       </div>
 
+      {serverStatus === 'unauthorized' && (
+      <Alert variant="danger">
+        <Alert.Heading>Authorization Required</Alert.Heading>
+        <p>
+          {error}
+          <Button 
+            variant="link" 
+            onClick={() => navigate('/login')}
+            className="p-0 ms-1"
+          >
+            Login Now
+          </Button>
+        </p>
+      </Alert>
+    )}
       {serverStatus === 'offline' && (
         <Alert variant="warning">
           <Alert.Heading>Server Connection Issue</Alert.Heading>
@@ -127,7 +173,7 @@ const Bookings = () => {
           <tbody>
             {bookings.map((booking) => (
               <tr key={booking.id}>
-                <td>{booking.tour.title}</td>
+                <td>{booking.tour?.name || 'N/A'}</td>
                 <td>{format(new Date(booking.bookingDate), 'MMM dd, yyyy')}</td>
                 <td>{booking.numberOfPeople}</td>
                 <td>
@@ -140,11 +186,7 @@ const Bookings = () => {
                 </td>
                 <td>
                   {booking.status === 'PENDING' && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleCancel(booking.id)}
-                    >
+                    <Button variant="danger" size="sm" onClick={() => handleCancel(booking.id)}>
                       Cancel
                     </Button>
                   )}
@@ -155,6 +197,7 @@ const Bookings = () => {
         </Table>
       )}
 
+      {/* Booking Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Form onSubmit={handleCreateBooking}>
           <Modal.Header closeButton>
@@ -166,7 +209,7 @@ const Bookings = () => {
               <Form.Control
                 type="number"
                 value={newBooking.tourId}
-                onChange={(e) => setNewBooking({...newBooking, tourId: e.target.value})}
+                onChange={(e) => setNewBooking({ ...newBooking, tourId: e.target.value })}
                 required
               />
             </Form.Group>
@@ -176,7 +219,9 @@ const Bookings = () => {
                 type="number"
                 min="1"
                 value={newBooking.travelersCount}
-                onChange={(e) => setNewBooking({...newBooking, travelersCount: parseInt(e.target.value)})}
+                onChange={(e) =>
+                  setNewBooking({ ...newBooking, travelersCount: parseInt(e.target.value) })
+                }
                 required
               />
             </Form.Group>
@@ -185,7 +230,7 @@ const Bookings = () => {
               <Form.Control
                 type="date"
                 value={newBooking.bookingDate}
-                onChange={(e) => setNewBooking({...newBooking, bookingDate: e.target.value})}
+                onChange={(e) => setNewBooking({ ...newBooking, bookingDate: e.target.value })}
                 required
               />
             </Form.Group>
@@ -195,7 +240,7 @@ const Bookings = () => {
                 as="textarea"
                 rows={3}
                 value={newBooking.specialRequirements}
-                onChange={(e) => setNewBooking({...newBooking, specialRequirements: e.target.value})}
+                onChange={(e) => setNewBooking({ ...newBooking, specialRequirements: e.target.value })}
               />
             </Form.Group>
           </Modal.Body>

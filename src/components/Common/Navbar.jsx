@@ -12,8 +12,15 @@ const CustomNavbar = () => {
     navigate('/login');
   };
 
+  // Safely get roles as an array to prevent includes error
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+
+  // Optional: Show nothing until auth is initialized
+  // Uncomment below if user is initially undefined (for example, during context loading)
+  // if (user === undefined) return null;
+
   return (
-    <Navbar expand="lg" variant="dark" sticky="top">
+    <Navbar expand="lg" variant="dark" sticky="top" bg="dark">
       <Container>
         <Navbar.Brand as={Link} to="/">TravelEase</Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
@@ -22,16 +29,19 @@ const CustomNavbar = () => {
             <Nav.Link as={Link} to="/">Home</Nav.Link>
             <Nav.Link as={Link} to="/about">About Us</Nav.Link>
             <Nav.Link as={Link} to="/contact">Contact</Nav.Link>
-            {user && user.roles.includes('ROLE_USER') && (
+
+            {roles.includes('ROLE_USER') && (
               <>
                 <Nav.Link as={Link} to="/bookings">My Bookings</Nav.Link>
                 <Nav.Link as={Link} to="/feedback">Feedback</Nav.Link>
               </>
             )}
-            {user && user.roles.includes('ROLE_ADMIN') && (
+
+            {roles.includes('ROLE_ADMIN') && (
               <Nav.Link as={Link} to="/admin">Admin Dashboard</Nav.Link>
             )}
           </Nav>
+
           <Nav>
             {user ? (
               <>
@@ -40,7 +50,7 @@ const CustomNavbar = () => {
               </>
             ) : (
               <>
-                <Button variant="outline" className="me-2" as={Link} to="/login">Login</Button>
+                <Button variant="outline-light" className="me-2" as={Link} to="/login">Login</Button>
                 <Button variant="success" as={Link} to="/signup">Sign Up</Button>
               </>
             )}

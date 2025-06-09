@@ -1,10 +1,7 @@
 package com.travel.api.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -13,13 +10,15 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "bookings")
 @EntityListeners(AuditingEntityListener.class)
+@ToString(exclude = {"user", "tour"})  // Prevent recursive toString()
 public class Booking {
     
     @Id
@@ -47,7 +46,8 @@ public class Booking {
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private BookingStatus status;
+    @Builder.Default
+    private BookingStatus status = BookingStatus.PENDING;  // Default value
     
     @CreatedDate
     private LocalDateTime createdAt;
@@ -61,11 +61,5 @@ public class Booking {
         CANCELLED
     }
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = BookingStatus.PENDING;
-        }
-    }
-} 
+    // Remove @PrePersist - handled by @CreatedDate
+}

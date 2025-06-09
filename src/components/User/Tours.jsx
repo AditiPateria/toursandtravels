@@ -8,72 +8,54 @@ import {
   Button, 
   Carousel 
 } from 'react-bootstrap';
+import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../../App.css';
 
 const Tours = () => {
-  // Static mock data
-  const mockTours = [
-    {
-      id: 1,
-      title: "European Adventure",
-      destination: "Paris, France",
-      description: "7-day tour through the heart of Europe including Eiffel Tower and Louvre visits.",
-      price: 1200,
-      duration_days: 7,
-      imageUrl: "https://images.unsplash.com/photo-1431274172761-fca41d930114?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-    },
-    {
-      id: 2,
-      title: "Asian Explorer",
-      destination: "Tokyo, Japan",
-      description: "10-day cultural journey through Tokyo, Kyoto, and Osaka.",
-      price: 1800,
-      duration_days: 10,
-      imageUrl: "https://images.unsplash.com/photo-1492571350019-22de08371fd3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-    },
-    {
-      id: 3,
-      title: "Tropical Paradise",
-      destination: "Bali, Indonesia",
-      description: "Relaxing 8-day beach vacation with spa treatments and island hopping.",
-      price: 1500,
-      duration_days: 8,
-      imageUrl: "https://images.unsplash.com/photo-1518544866330-95a2ab6f3600?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-    }
-  ];
-
-  const [tours, setTours] = useState(mockTours);
-  const [filteredTours, setFilteredTours] = useState(mockTours);
+  const [tours, setTours] = useState([]);
+  const [filteredTours, setFilteredTours] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [destinationFilter, setDestinationFilter] = useState('');
   const [priceRange, setPriceRange] = useState([0, 10000]);
 
-  // Filter logic
+  useEffect(() => {
+    const fetchTours = async () => {
+      try {
+        const response = await axios.get('/api/tours'); // Update with actual API endpoint
+        setTours(response.data);
+        setFilteredTours(response.data);
+      } catch (error) {
+        console.error('Error fetching tours:', error);
+      }
+    };
+
+    fetchTours();
+  }, []);
+
   useEffect(() => {
     let results = tours;
-    
+
     if (searchTerm) {
-      results = results.filter(tour => 
+      results = results.filter(tour =>
         tour.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tour.description.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
+
     if (destinationFilter) {
-      results = results.filter(tour => 
+      results = results.filter(tour =>
         tour.destination.toLowerCase().includes(destinationFilter.toLowerCase())
       );
     }
-    
-    results = results.filter(tour => 
+
+    results = results.filter(tour =>
       tour.price >= priceRange[0] && tour.price <= priceRange[1]
     );
-    
+
     setFilteredTours(results);
   }, [searchTerm, destinationFilter, priceRange, tours]);
 
-  // Testimonials data
   const testimonials = [
     {
       id: 1,
@@ -93,7 +75,6 @@ const Tours = () => {
 
   return (
     <div className="tours-page">
-      {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-overlay">
           <Container className="text-center text-white py-5">
@@ -111,7 +92,6 @@ const Tours = () => {
         </div>
       </section>
 
-      {/* Featured Tours */}
       <section className="py-5 bg-light">
         <Container>
           <h2 className="text-center mb-5">Featured Tours</h2>
@@ -132,7 +112,7 @@ const Tours = () => {
                     <Card.Text>{tour.description}</Card.Text>
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="fw-bold text-danger">${tour.price}</span>
-                      <span>{tour.duration_days} days</span>
+                      <span>{tour.durationDays} days</span>
                     </div>
                   </Card.Body>
                   <Card.Footer className="bg-white">
@@ -145,7 +125,6 @@ const Tours = () => {
         </Container>
       </section>
 
-      {/* Testimonials */}
       <section className="py-5 bg-white">
         <Container>
           <h2 className="text-center mb-5">What Our Travelers Say</h2>
@@ -178,12 +157,10 @@ const Tours = () => {
         </Container>
       </section>
 
-      {/* All Tours Section */}
       <section id="available-tours" className="py-5 bg-light">
         <Container>
           <h2 className="mb-4 text-center">Available Tours</h2>
           
-          {/* Search and Filters */}
           <Row className="mb-4 g-3">
             <Col md={6}>
               <Form.Control
@@ -201,7 +178,7 @@ const Tours = () => {
                 className="shadow-sm"
               >
                 <option value="">All Destinations</option>
-                {[...new Set(mockTours.map(tour => tour.destination))].map(dest => (
+                {[...new Set(tours.map(tour => tour.destination))].map(dest => (
                   <option key={dest} value={dest}>{dest}</option>
                 ))}
               </Form.Select>
@@ -221,7 +198,6 @@ const Tours = () => {
             </Col>
           </Row>
           
-          {/* Tours Grid */}
           <Row xs={1} md={2} lg={3} className="g-4">
             {filteredTours.map(tour => (
               <Col key={tour.id}>
@@ -239,7 +215,7 @@ const Tours = () => {
                     <Card.Text>{tour.description}</Card.Text>
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="fw-bold text-danger">${tour.price}</span>
-                      <span>{tour.duration_days} days</span>
+                      <span>{tour.durationDays} days</span>
                     </div>
                   </Card.Body>
                   <Card.Footer className="bg-white">

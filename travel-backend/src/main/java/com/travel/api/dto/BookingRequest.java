@@ -25,4 +25,4 @@ public class BookingRequest {
     private Integer numberOfPeople;
 
     private String specialRequirements;
-} 
+}

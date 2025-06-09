@@ -9,17 +9,23 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "roles")
+@Table(
+    name = "roles",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = "name") // ✅ Enforces one entry per role
+    }
+)
 public class Role {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 20, nullable = false)
     private ERole name;
 
     public Role(ERole name) {
         this.name = name;
     }
-} 
+}

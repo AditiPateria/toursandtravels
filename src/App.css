@@ -35,13 +35,13 @@ body {
 }
 
 .nav-link {
-  color: var(--text-color) !important;
+ 
   font-weight: 500;
   transition: var(--transition-base);
 }
 
 .nav-link:hover {
-  color: var(--primary-color) !important;
+  color: pink;
 }
 
 /* Button Styles */

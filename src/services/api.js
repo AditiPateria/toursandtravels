@@ -6,38 +6,38 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json',
   },
-  withCredentials: false // Set to false since we're using token-based auth
+  withCredentials: false // We're using token-based auth, not cookies
 });
 
-// Add request interceptor
+// Request Interceptor
 api.interceptors.request.use(
   (config) => {
-    // Add debug logging
     console.log('Making request to:', config.url);
-    
-    const token = localStorage.getItem('token');
-    if (token) {
+
+    let token = localStorage.getItem('token');
+
+    if (token && typeof token === 'string') {
+      token = token.trim(); // ✅ Fix: remove whitespace around the token
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('Token found and added to request');
+      console.log('✅ Token found and added to request');
     } else {
-      console.log('No token found in localStorage');
+      console.warn('⚠️ No token found in localStorage');
     }
-    
+
     return config;
   },
   (error) => {
-    console.error('Request interceptor error:', error);
+    console.error('Request setup error:', error);
     return Promise.reject(error);
   }
 );
 
-// Add response interceptor
+// Response Interceptor
 api.interceptors.response.use(
   (response) => {
-    // Add debug logging
-    console.log('Received successful response:', {
+    console.log('✅ Response received:', {
       url: response.config.url,
       status: response.status,
       data: response.data
@@ -45,32 +45,28 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    let errorMessage = 'An unexpected error occurred';
-    
+    let errorMessage = 'Something went wrong.';
+
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      errorMessage = error.response.data?.message || error.response.data || errorMessage;
-      console.error('Server Error:', {
-        url: error.config.url,
-        status: error.response.status,
-        data: error.response.data
-      });
-      
-      // Handle 401 Unauthorized
-      if (error.response.status === 401) {
-        localStorage.removeItem('token'); // Clear invalid token
-        window.location.href = '/login'; // Redirect to login
-        return Promise.reject(new Error('Session expired. Please login again.'));
+      const { status, data, config } = error.response;
+      console.error(`🚨 Server Error on ${config.url}:`, data);
+
+      if (status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        errorMessage = 'Session expired. Please login again.';
+      } else if (status === 403) {
+        errorMessage = 'You are not authorized to access this resource.';
+      } else {
+        errorMessage = data?.message || data || errorMessage;
       }
+
     } else if (error.request) {
-      // The request was made but no response was received
-      errorMessage = 'No response from server. Please check if the server is running.';
-      console.error('Network Error:', error.request);
+      console.error('❌ No response from backend:', error.request);
+      errorMessage = 'Cannot connect to the server. Please ensure it is running.';
     } else {
-      // Something happened in setting up the request
+      console.error('⚠️ Request Error:', error.message);
       errorMessage = error.message;
-      console.error('Request Error:', error.message);
     }
 
     error.message = errorMessage;

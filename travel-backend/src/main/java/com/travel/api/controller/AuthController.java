@@ -14,13 +14,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.travel.api.dto.AuthRequest;
 import com.travel.api.dto.AuthResponse;
@@ -38,96 +35,94 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-	private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
-	@Autowired
-	private AuthenticationManager authenticationManager;
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
-	@Autowired
-	private UserService userService;
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
-	@Autowired
-	private RoleRepository roleRepository;
+    @Autowired
+    private UserService userService;
 
-	@Autowired
-	private PasswordEncoder encoder;
+    @Autowired
+    private RoleRepository roleRepository;
 
-	@Autowired
-	private JwtService jwtService;
+    @Autowired
+    private PasswordEncoder encoder;
 
-	@PostMapping("/login")
-	public ResponseEntity<?> authenticateUser(@Valid @RequestBody AuthRequest loginRequest) {
-		try {
-			Authentication authentication = authenticationManager.authenticate(
-					new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+    @Autowired
+    private JwtService jwtService;
 
-			// Generate JWT token
-			String jwt = jwtService.generateJwtToken(authentication);
+    @PostMapping("/login")
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody AuthRequest loginRequest) {
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
 
-			// Get user details from authentication
-			UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String jwt = jwtService.generateJwtToken(authentication);
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-			// Get user roles from authentication
-			List<String> roles = userDetails.getAuthorities().stream().map(GrantedAuthority::getAuthority)
-					.collect(Collectors.toList());
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
 
-			// Get the actual user from database to get ID and email
-			User user = userService.findByUsername(userDetails.getUsername());
+            User user = userService.findByUsername(userDetails.getUsername())
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-			return ResponseEntity.ok(new AuthResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roles));
+            return ResponseEntity.ok(new AuthResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roles));
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(401).body("User not found");
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401).body("Invalid username or password");
+        } catch (Exception e) {
+            e.printStackTrace(); // 👈 log the real issue
+            return ResponseEntity.status(500).body("Authentication failed: " + e.getMessage());
+        }
+    }
 
-		} catch (BadCredentialsException e) {
-			logger.error("Authentication failed for user: {}", loginRequest.getUsername());
-			return ResponseEntity.status(401).body("Invalid username or password");
-		} catch (Exception e) {
-			logger.error("Authentication error: ", e);
-			return ResponseEntity.status(500).body("Authentication failed");
-		}
-	}
 
-	@PostMapping("/register")
-	@Transactional
-	public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
-	    try {
-	        logger.debug("Registration attempt for username: {}", signUpRequest.getUsername());
-	        
-	        // Check if username/email exists
-	        if (userService.existsByUsername(signUpRequest.getUsername())) {
-	            logger.warn("Username already exists: {}", signUpRequest.getUsername());
-	            return ResponseEntity.badRequest().body("Username is already taken");
-	        }
-	        if (userService.existsByEmail(signUpRequest.getEmail())) {
-	            logger.warn("Email already exists: {}", signUpRequest.getEmail());
-	            return ResponseEntity.badRequest().body("Email is already in use");
-	        }
+    @PostMapping("/register")
+    @Transactional
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
+        try {
+            logger.debug("Registration attempt for username: {}", signUpRequest.getUsername());
 
-	        // Create and save new user
-	        User user = new User();
-	        user.setUsername(signUpRequest.getUsername());
-	        user.setEmail(signUpRequest.getEmail());
-	        user.setPassword(encoder.encode(signUpRequest.getPassword()));
-	        
-	        logger.debug("Looking for ROLE_USER in database");
-	        
-	        // Set default role (ensure ROLE_USER exists in your database)
-	        Role userRole = roleRepository.findByName(ERole.ROLE_USER)
-	            .orElseThrow(() -> {
-	                logger.error("ROLE_USER not found in database");
-	                return new RuntimeException("Error: Role ROLE_USER not found in database");
-	            });
-	            
-	        user.setRoles(Collections.singleton(userRole));
+            if (userService.existsByUsername(signUpRequest.getUsername())) {
+                logger.warn("Username already exists: {}", signUpRequest.getUsername());
+                return ResponseEntity.badRequest().body("Username is already taken");
+            }
 
-	        logger.debug("Saving user to database");
-	        User savedUser = userService.save(user);
-	        logger.info("User registered successfully: {}", savedUser.getUsername());
-	        
-	        return ResponseEntity.ok("User registered successfully");
+            if (userService.existsByEmail(signUpRequest.getEmail())) {
+                logger.warn("Email already exists: {}", signUpRequest.getEmail());
+                return ResponseEntity.badRequest().body("Email is already in use");
+            }
 
-	    } catch (Exception e) {
-	        logger.error("Registration failed for user: {} - Error: {}", 
-	                    signUpRequest.getUsername(), e.getMessage(), e);
-	        return ResponseEntity.badRequest().body("Registration failed: " + e.getMessage());
-	    }
-	}
+            User user = new User();
+            user.setUsername(signUpRequest.getUsername());
+            user.setEmail(signUpRequest.getEmail());
+            user.setPassword(encoder.encode(signUpRequest.getPassword()));
+
+            logger.debug("Looking for ROLE_USER in database");
+
+            Role userRole = roleRepository.findByName(ERole.ROLE_USER).orElseThrow(() -> {
+                logger.error("ROLE_USER not found in database");
+                return new RuntimeException("Error: Role ROLE_USER not found in database");
+            });
+
+            user.setRoles(Collections.singleton(userRole));
+
+            User savedUser = userService.save(user);
+            logger.info("User registered successfully: {}", savedUser.getUsername());
+
+            return ResponseEntity.ok("User registered successfully");
+
+        } catch (Exception e) {
+            logger.error("Registration failed for user: {} - Error: {}", signUpRequest.getUsername(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Registration failed: " + e.getMessage());
+        }
+    }
 }
