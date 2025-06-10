@@ -1,0 +1,32 @@
+# === FRONTEND (React + Bootstrap) ===
+node_modules/
+build/
+dist/
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+.vscode/
+.idea/
+
+# === BACKEND (Spring Boot with Maven/Gradle) ===
+target/
+*.log
+*.class
+*.jar
+*.war
+*.iml
+.gradle/
+build/
+out/
+
+# === OS/IDE FILES ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# === Git folder safety ===
+!.gitignore
